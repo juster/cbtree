@@ -78,12 +78,6 @@ let add k cbt =
   match cbt with
     Empty -> Tree (Leaf k) | Tree n -> Tree (prune k (findlen k n) n)
 
-let traverse cbt =
-  let rec walk = function
-    Leaf k -> printf "%s\n" k
-  | Branch (left, _, right) -> walk left; walk right
-  in match cbt with Empty -> () | Tree node -> walk node
-
 let remove k cbt =
   let notfound _ = failwith "key not found" in
   let rec walk k = function
@@ -100,32 +94,8 @@ let remove k cbt =
   | Tree (Leaf k') -> if k = k' then Empty else notfound ()
   | Tree (Branch (_, _, _) as b) -> Tree (walk k b)
 
-let strbin s =
-  let buf = Buffer.create 8 in
-  for i = 0 to (8*(String.length s))-1 do
-    (if ((i > 0) && ((i mod 8) = 0)) then Buffer.add_char buf '-');
-    let bit = match strbit s i with On -> '1' | Off -> '0' in
-    Buffer.add_char buf bit
-  done;
-  Buffer.to_bytes buf
-
-(*
-let _ =
-  printf "%s\n" (strbin "ab");
-  printf "%s\n" (strbin "AB")
-
-let _ =
-  let a = "\xFF\xFF\xFF" in
-  let b = "\xF0\x0F\x00" in
-  let x = String.length a in
-  let c = strblt ~src:a ~dest:b ~op:Xor x in
-  for i = 0 to x-1 do
-    printf "%02X" (Char.code c.[i])
-  done;
-  printf "\n"
-
-let _ =
-  let a = "\xFF\xF0\x00" in
-  let b = "\xFF\xF0" in
-  printf "%d\n" (pre_length a b)
-*)
+let iter ~f cbt =
+  let rec walk f = function
+    Leaf k -> f k | Branch (left, _, right) -> walk f left; walk f right
+  in match cbt with
+    Empty -> () | Tree n -> walk f n
