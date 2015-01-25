@@ -2,6 +2,20 @@ let print_tree cbt =
   Cbtree.iter ~f:(fun k -> print_endline k) cbt
 
 (*
+type bltop = Xor
+let strblt ~src:s ~dest:d ~op ?(srci=0) ?(desti=0) count =
+  let d = Bytes.of_string d in
+  for i = 0 to count-1 do
+    let x = Char.code s.[srci + i] in
+    let y = match op with
+      Xor -> x lxor (Char.code d.[desti + i])
+    in
+    Bytes.set d (desti + i) (Char.chr y)
+  done;
+  Bytes.to_string d
+*)
+
+(*
 let strbin s =
   let buf = Buffer.create 8 in
   for i = 0 to (8*(String.length s))-1 do
