@@ -1,5 +1,3 @@
-open Printf
-
 type node = Leaf of string | Branch of node * int * node
 type t = Empty | Tree of node
 type bitstat = On | Off
