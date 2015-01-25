@@ -83,6 +83,22 @@ let traverse cbt =
   | Branch (left, _, right) -> walk left; walk right
   in match cbt with Empty -> () | Tree node -> walk node
 
+let remove k cbt =
+  let notfound _ = failwith "key not found" in
+  let rec walk k = function
+    Leaf _ -> failwith "remove walked into a leaf"
+  | Branch (left, len, right) ->
+    let cb = strbit k len in
+    match cb, left, right with
+      Off, Leaf k', _ -> if k = k' then right else notfound ()
+    | On, _, Leaf k'  -> if k = k' then left else notfound ()
+    | Off, _, _ -> Branch (walk k left, len, right)
+    | On, _, _ -> Branch (left, len, walk k right)
+  in match cbt with
+    Empty -> notfound ()
+  | Tree (Leaf k') -> if k = k' then Empty else notfound ()
+  | Tree (Branch (_, _, _) as b) -> Tree (walk k b)
+
 let strbin s =
   let buf = Buffer.create 8 in
   for i = 0 to (8*(String.length s))-1 do
