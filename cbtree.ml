@@ -1,9 +1,10 @@
 open Printf
-open Printexc
 
 type node = Leaf of string | Branch of node * int * node
-type tree = Empty | Tree of node
+type t = Empty | Tree of node
 type bitstat = On | Off
+
+let empty = Empty
 
 let strbit key bit =
   try
