@@ -28,7 +28,7 @@ let strbits s =
     if m = 0 then Buffer.contents b
     else binstr x (m lsr 1)
       (Buffer.add_char b (if x land m = 0 then '0' else '1'); b)
-  let rec rev_codes s i codes =
+  in let rec rev_codes s i codes =
     if i >= String.length s then codes
     else rev_codes s (i+1) ((Char.code s.[i]) :: codes)
   in List.rev_map (fun x -> binstr x 0x80 (Buffer.create 8))
