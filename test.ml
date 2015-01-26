@@ -11,19 +11,6 @@ let strblt ~src:s ~dest:d ~op ?(srci=0) ?(desti=0) count =
   done;
   Bytes.to_string d
 
-let strbin s =
-  let buf = Buffer.create 8 in
-  for i = 0 to (8*(String.length s))-1 do
-    (if ((i > 0) && ((i mod 8) = 0)) then Buffer.add_char buf '-');
-    let bit = match strbit s i with On -> '1' | Off -> '0' in
-    Buffer.add_char buf bit
-  done;
-  Buffer.to_bytes buf
-
-let _ =
-  printf "%s\n" (strbin "ab");
-  printf "%s\n" (strbin "AB")
-
 let _ =
   let a = "\xFF\xFF\xFF" in
   let b = "\xF0\x0F\x00" in
@@ -34,11 +21,25 @@ let _ =
   done;
   printf "\n"
 
-let _ =
-  let a = "\xFF\xF0\x00" in
-  let b = "\xFF\xF0" in
-  printf "%d\n" (pre_length a b)
 *)
+
+let strbits s =
+  let rec binstr x m b =
+    if m = 0 then Buffer.contents b
+    else binstr x (m lsr 1)
+      (Buffer.add_char b (if x land m = 0 then '0' else '1'); b)
+  let rec rev_codes s i codes =
+    if i >= String.length s then codes
+    else rev_codes s (i+1) ((Char.code s.[i]) :: codes)
+  in List.rev_map (fun x -> binstr x 0x80 (Buffer.create 8))
+    (rev_codes s 0 [])
+
+let strbin s = String.concat "-" (strbits s)
+
+open Printf
+let _ =
+  printf "%s\n" (strbin "ab");
+  printf "%s\n" (strbin "AB")
 
 let print_tree cbt =
   Cbtree.iter ~f:(fun k -> print_endline k) cbt
