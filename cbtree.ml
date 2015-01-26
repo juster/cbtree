@@ -1,96 +1,82 @@
 type node = Leaf of string | Branch of node * int * node
 type t = Empty | Tree of node
 type bitstat = On | Off
-
 let empty = Empty
 
-let strbit key bit =
-  try
-    let c = Char.code key.[bit/8] in
-    let b = 0xFF lxor (1 lsl (7-(bit mod 8))) in
-    let x = ((c lor b) + 1) lsr 8 in
-    match x with 0 -> Off | _ -> On
-  with Invalid_argument "index out of bounds" -> Off
+(* Given two strings, find the byte index and the critical bit mask.
+   The result is packed into an integer, the lower 8 bits being the
+   bit mask and the remaining 23 or 55 bits contain the byte index. *)
+let cbcalc s t =
+  let xor s t i = (Char.code s.[i]) lxor (Char.code t.[i]) in
+  let rec cbcalc' s t len i =
+    if i >= len then None
+    else match xor s t i with 0 -> cbcalc' s t len (i+1) | _ as m ->
+      (* Ref http://aggregate.org/MAGIC via agl/critbit *)
+      let m = m lor (m lsr 1) in let m = m lor (m lsr 2) in
+      let m = m lor (m lsr 3) in let m = m lor (m lsr 4) in
+      let m = m land (lnot (m lsr 1)) in
+      (* Pack byte number and critical bit mask into a single int *)
+      Some ((i lsl 8) lor m)
+  in
+  if String.length s = String.length t then
+    cbcalc' s t (String.length s) 0
+  else
+    let len = min (String.length s) (String.length t) in
+    match cbcalc' s t len 0 with
+      None -> Some ((len lsl 8) lor 0x80) | Some _ as x -> x
+
+let cbtest key cb =
+  try let c = Char.code key.[cb lsr 8] in
+    match c land (cb land 0xFF) with 0 -> Off | _ -> On
+  with Invalid_argument _ -> Off
 
 let mem k cbt =
   let rec walk k = function
     Leaf k' -> k = k'
-  | Branch (left, cbit, right) ->
-    match strbit k cbit with
-      On -> walk k right | Off -> walk k left
-  in
-  match cbt with Empty -> false | Tree n -> walk k n
+  | Branch (left, cb, right) ->
+    walk k (match cbtest k cb with On -> right | Off -> left)
+  in match cbt with Empty -> false | Tree n -> walk k n
 
-(* Determine the prefix length. *)
-exception CritBit of int
-let pre_length k k' =
-  let get s i = try Char.code s.[i] with Invalid_argument _ -> 0 in
-  let prelen s t =
-    let slen = String.length s and tlen = String.length t in
-    for i = 0 to (max slen tlen)-1 do
-      match (get s i) lxor (get t i) with
-        0 -> () | x ->
-          for j = 0 to 7 do
-            match x land (1 lsl (7-j)) with
-              0 -> () | _ -> raise (CritBit ((i*8)+j))
-          done
-    done
-  in try prelen k k'; -1 with CritBit i -> i
+let graft k cb n =
+  match cbtest k cb with
+    On -> Branch (n, cb, Leaf k) | Off -> Branch (Leaf k, cb, n)
+
+exception Critbit of int
+
+let rec prune k = function
+  | Leaf l ->
+    (match cbcalc k l with None -> failwith "key already exists"
+     | Some cb -> raise (Critbit cb))
+  | Branch (left, cb, right) ->
+    let dir = cbtest k cb in
+    try prune k (match dir with On -> right | Off -> left)
+    with Critbit newcb as e ->
+      if newcb < cb then raise e
+      else if newcb = cb then failwith "newcb is equal to cb"
+      else match dir with On -> Branch (left, cb, graft k newcb right)
+      | Off -> Branch (graft k newcb left, cb, right)
 
 let add k cbt =
-  (* Create a new branch for two keys. *)
-  let newbranch k k' len =
-    if len = -1 then failwith "identical key found in newbranch"
-    else match strbit k len, strbit k' len with
-      On, Off -> Branch (Leaf k', len, Leaf k)
-    | Off, On -> Branch (Leaf k, len, Leaf k')
-    | On, On | Off, Off -> failwith "pre_length gave false result"
-  in
-
-  (* Find the left-most leaf in the subtree. *)
-  let rec findlen k = function
-    Leaf k' -> pre_length k k'
-  | Branch (left, _, _) -> findlen k left
-  in
-
-  (* Replace tree nodes as we search for our rightful place. *)
-  let rec prune k len n =
-    if len = -1 then failwith "identical key found in prune"
-    else match n with
-      (* If we stumble upon a leaf, then split it into a branch. *)
-      Leaf k' -> newbranch k k' len
-      (* Common prefix with subtree is < active branch. Replace this branch. *)
-    | Branch (_, blen, _) as b when len < blen ->
-      begin match strbit k len with
-        On -> Branch (b, len, Leaf k) | Off -> Branch (Leaf k, len, b)
-      end
-      (* Otherwise check our critbit to see whether we go left or right. *)
-    | Branch (left, blen, right) ->
-      begin match strbit k blen with
-        (* We already have left subtree's length. *)
-        On -> Branch (left, blen, prune k (findlen k right) right)
-      | Off -> Branch (prune k len left, blen, right)
-      end
-  in
-
   match cbt with
-    Empty -> Tree (Leaf k) | Tree n -> Tree (prune k (findlen k n) n)
+    Empty -> Tree (Leaf k)
+  | Tree n -> try Tree (prune k n)
+    with Critbit cb -> Tree (graft k cb n)
 
-let remove k cbt =
-  let notfound _ = failwith "key not found" in
+exception Foundkey of string
+
+let remove k t =
   let rec walk k = function
-    Leaf _ -> failwith "remove walked into a leaf"
-  | Branch (left, len, right) ->
-    let cb = strbit k len in
-    match cb, left, right with
-      Off, Leaf k', _ -> if k = k' then right else notfound ()
-    | On, _, Leaf k'  -> if k = k' then left else notfound ()
-    | Off, _, _ -> Branch (walk k left, len, right)
-    | On, _, _ -> Branch (left, len, walk k right)
-  in match cbt with
-    Empty -> notfound ()
-  | Tree (Leaf k') -> if k = k' then Empty else notfound ()
-  | Tree (Branch (_, _, _) as b) -> Tree (walk k b)
+    Leaf l when k = l -> raise (Foundkey l)
+  | Leaf _ -> failwith "key not found"
+  | Branch (left, cb, right) ->
+    let dir = cbtest k cb in
+    try match dir with On -> Branch (left, cb, walk k right)
+    | Off -> Branch (walk k left, cb, right)
+    with Foundkey l -> match dir with On -> left | Off -> right
+  in match t with
+    Empty -> failwith "key not found"
+  | Tree (Leaf l) -> if k = l then Empty else failwith "key not found"
+  | Tree (b) -> Tree (walk k b)
 
 let iter ~f cbt =
   let rec walk f = function

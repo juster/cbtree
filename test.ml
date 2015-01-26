@@ -1,6 +1,3 @@
-let print_tree cbt =
-  Cbtree.iter ~f:(fun k -> print_endline k) cbt
-
 (*
 type bltop = Xor
 let strblt ~src:s ~dest:d ~op ?(srci=0) ?(desti=0) count =
@@ -13,9 +10,7 @@ let strblt ~src:s ~dest:d ~op ?(srci=0) ?(desti=0) count =
     Bytes.set d (desti + i) (Char.chr y)
   done;
   Bytes.to_string d
-*)
 
-(*
 let strbin s =
   let buf = Buffer.create 8 in
   for i = 0 to (8*(String.length s))-1 do
@@ -24,13 +19,7 @@ let strbin s =
     Buffer.add_char buf bit
   done;
   Buffer.to_bytes buf
-*)
 
-let _ =
-  let tree = Cbtree.add "a" (Cbtree.add "ax" Cbtree.empty) in
-  print_tree tree
-
-(*
 let _ =
   printf "%s\n" (strbin "ab");
   printf "%s\n" (strbin "AB")
@@ -50,5 +39,12 @@ let _ =
   let b = "\xFF\xF0" in
   printf "%d\n" (pre_length a b)
 *)
+
+let print_tree cbt =
+  Cbtree.iter ~f:(fun k -> print_endline k) cbt
   
-  
+let _ =
+  let t = Cbtree.add "ax" Cbtree.empty in
+  let t = Cbtree.add "a" t in
+  let t = Cbtree.add "b" t in
+  print_tree t
