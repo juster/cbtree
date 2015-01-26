@@ -36,16 +36,12 @@ let strbits s =
 
 let strbin s = String.concat "-" (strbits s)
 
-open Printf
-let _ =
-  printf "%s\n" (strbin "ab");
-  printf "%s\n" (strbin "AB")
+let dump_tree t =
+  Cbtree.iter ~f:(fun k -> print_endline (strbin k)) t
 
-let print_tree cbt =
-  Cbtree.iter ~f:(fun k -> print_endline k) cbt
-  
 let _ =
-  let t = Cbtree.add "ax" Cbtree.empty in
-  let t = Cbtree.add "a" t in
-  let t = Cbtree.add "b" t in
-  print_tree t
+  let t = Cbtree.add "\x00\x00" Cbtree.empty in
+  let t = Cbtree.add "\x00" t in
+  let t = Cbtree.add "\x01" t in
+  let t = Cbtree.add "\x01\x00" t in
+  dump_tree t

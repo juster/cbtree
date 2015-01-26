@@ -4,30 +4,35 @@ type bitstat = On | Off
 let empty = Empty
 
 (* Given two strings, find the byte index and the critical bit mask.
-   The result is packed into an integer, the lower 8 bits being the
-   bit mask and the remaining 23 or 55 bits contain the byte index. *)
+   The result is packed into an integer, the lower 3 bits being the
+   bit index and the remaining 28 or 60 bits contain the byte index. *)
 let cbcalc s t =
   let xor s t i = (Char.code s.[i]) lxor (Char.code t.[i]) in
   let rec cbcalc' s t len i =
     if i >= len then None
     else match xor s t i with 0 -> cbcalc' s t len (i+1) | _ as m ->
-      (* Ref http://aggregate.org/MAGIC via agl/critbit *)
+      (* Performs a log2 of the value of critical bit; lower bits might be 1.
+         Reference: http://aggregate.org/MAGIC via agl/critbit *)
+      (* Fold upper bits into lower bits so crit bit and below are set. *)
       let m = m lor (m lsr 1) in let m = m lor (m lsr 2) in
       let m = m lor (m lsr 3) in let m = m lor (m lsr 4) in
-      let m = m land (lnot (m lsr 1)) in
-      (* Pack byte number and critical bit mask into a single int *)
-      Some ((i lsl 8) lor m)
+      (* Count the ones in the byte. *)
+      let m = m - ((m lsr 1) land 0x55) in
+      let m = ((m lsr 2) land 0x33) + (m land 0x33) in
+      let m = ((m lsr 4) + m) land 0x0F in
+      (* Pack byte number and critical bit index into a single int *)
+      Some ((i lsl 3) lor (m - 1))
   in
   if String.length s = String.length t then
     cbcalc' s t (String.length s) 0
   else
     let len = min (String.length s) (String.length t) in
     match cbcalc' s t len 0 with
-      None -> Some ((len lsl 8) lor 0x80) | Some _ as x -> x
+      None -> Some (len lsl 3) | Some _ as x -> x
 
 let cbtest key cb =
-  try let c = Char.code key.[cb lsr 8] in
-    match c land (cb land 0xFF) with 0 -> Off | _ -> On
+  try let c = Char.code key.[cb lsr 3] in
+    match c land (1 lsl (cb land 7)) with 0 -> Off | _ -> On
   with Invalid_argument _ -> Off
 
 let mem k cbt =
