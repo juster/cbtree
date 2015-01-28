@@ -39,9 +39,16 @@ let strbin s = String.concat "-" (strbits s)
 let dump_tree t =
   Cbtree.iter ~f:(fun k -> print_endline (strbin k)) t
 
+let print_tree t =
+  Cbtree.iter ~f:(fun k -> print_endline k) t
+
 let _ =
   let t = Cbtree.add "\x00\x00" Cbtree.empty in
   let t = Cbtree.add "\x00" t in
   let t = Cbtree.add "\x01" t in
   let t = Cbtree.add "\x01\x00" t in
   dump_tree t
+
+let _ =
+  let t = Cbtree.add "a" (Cbtree.add "axel" (Cbtree.add "ax" Cbtree.empty)) in
+  print_tree t
