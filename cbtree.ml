@@ -38,7 +38,7 @@ let cbcalc k l =
 (* Test the string's critical bit, specified by the packed cb integer. *)
 let cbtest s cb =
   let i = cb lsr 4 in
-  match cb land 0xF with 0 -> if (String.length s) = i then false else true
+  match cb land 0xF with 0 -> if (String.length s) <= i then false else true
   | m ->
     try match (Char.code s.[i]) land m with 0 -> false | _ -> true
     with Invalid_argument _ -> failwith "corrupt cb integer in cbtest"
