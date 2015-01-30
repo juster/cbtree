@@ -49,6 +49,11 @@ let _ =
   let t = Cbtree.add "\x01\x00" t in
   dump_tree t
 
+let rec print_after p t =
+  match Cbtree.after p t with None -> ()
+  | Some k -> print_endline k; print_after k t
+
 let _ =
   let t = Cbtree.add "a" (Cbtree.add "axel" (Cbtree.add "ax" Cbtree.empty)) in
-  print_tree t
+  print_tree t;
+  print_after "al" t

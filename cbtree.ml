@@ -99,3 +99,27 @@ let iter ~f t =
   let rec walk f = function Leaf k -> f k
   | Branch (left, _, right) -> walk f left; walk f right
   in match t with Empty -> () | Tree n -> walk f n
+
+let after k =
+  let rec diveleft = function Leaf l -> l | Branch (left,_,_) -> diveleft left
+  in let rec after' k = function
+    Leaf l -> failwith "root leaf found in after'" (* root node is a leaf *)
+  | Branch (left, cb, right) ->
+    let dir = cbtest k cb in
+    try match dir, left, right with
+      false, Leaf l, _
+    | true, _, Leaf l ->
+        let newcb = match cbcalc k l with None -> cb | Some x -> x in
+        raise (Critbit newcb)
+    | false, (Branch (_,_,_) as b), _
+    | true, _, (Branch (_,_,_) as b) -> after' k b
+    with Critbit newcb as e ->
+      if newcb < cb then raise e
+      else if dir then raise e (* backtrack until we can dive right *)
+      else Some (diveleft right)
+  in function Empty -> None
+  | Tree (Leaf l) -> begin match cbcalc k l with
+      None -> None | Some cb when cbtest k cb -> None | Some _ -> Some l
+    end
+  | Tree (Branch (_,_,_) as n) -> try after' k n with Critbit cb ->
+    if cbtest k cb then None else Some (diveleft n)
