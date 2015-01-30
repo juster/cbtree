@@ -43,11 +43,14 @@ let cbtest s cb =
     try match (Char.code s.[i]) land m with 0 -> false | _ -> true
     with Invalid_argument _ -> failwith "corrupt cb integer in cbtest"
 
-let mem k cbt =
-  let rec walk k = function Leaf k' -> k = k'
+(* Test if key k is present in the given tree. *)
+let mem k =
+  let rec walk k = function Leaf l -> l
   | Branch (left, cb, right) ->
     walk k (match cbtest k cb with true -> right | false -> left)
-  in match cbt with Empty -> false | Tree n -> walk k n
+  in function Empty -> false | Tree n -> k = (walk k n)
+
+(* Add a key to a tree with might be empty. *)
 
 let graft k cb n =
   match cbtest k cb with true -> Branch (n, cb, Leaf k)
@@ -55,23 +58,27 @@ let graft k cb n =
 
 exception Critbit of int
 
-let rec prune k = function
+(* Add a key to a non-empty tree in the form of nodes. *)
+
+let rec add' k = function
   | Leaf l -> begin
       match cbcalc k l with None -> failwith "key already exists"
       | Some cb -> raise (Critbit cb)
     end
   | Branch (left, cb, right) ->
     let dir = cbtest k cb in
-    try prune k (match dir with true -> right | false -> left)
+    try add' k (if dir then right else left)
     with Critbit newcb as e ->
       if newcb < cb then raise e
       else if newcb = cb then failwith "newcb is equal to cb"
-      else match dir with true -> Branch (left, cb, graft k newcb right)
-      | false -> Branch (graft k newcb left, cb, right)
+      else if dir then Branch (left, cb, graft k newcb right)
+      else Branch (graft k newcb left, cb, right)
 
 let add k cbt =
   match cbt with Empty -> Tree (Leaf k)
-  | Tree n -> try Tree (prune k n) with Critbit cb -> Tree (graft k cb n)
+  | Tree n -> try Tree (add' k n) with Critbit cb -> Tree (graft k cb n)
+
+(* Remove a key from a tree. *)
 
 exception Foundkey of string
 
@@ -80,12 +87,13 @@ let remove k t =
     Leaf l -> if k = l then raise (Foundkey l) else failwith "key not found"
   | Branch (left, cb, right) ->
     let dir = cbtest k cb in
-    try match dir with true -> Branch (left, cb, walk k right)
-      | false -> Branch (walk k left, cb, right)
-    with Foundkey l -> match dir with true -> left | false -> right
+    try if dir then Branch (left, cb, walk k right) else Branch (walk k left, cb, right)
+    with Foundkey l -> if dir then left else right
   in match t with Empty -> failwith "key not found"
   | Tree (Leaf l) -> if k = l then Empty else failwith "key not found"
   | Tree (b) -> Tree (walk k b)
+
+(* Iterate through every leaf of the given tree. *)
 
 let iter ~f t =
   let rec walk f = function Leaf k -> f k
