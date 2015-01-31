@@ -137,7 +137,6 @@ let rec after' k = function
       | Some b -> raise (Critbit (b, cbtest k b))
     end
   | Branch (l, b, r) ->
-    (* Backtrack until we can dive into the right-hand side. *)
     let d = cbtest k b in
     try after' k (match d with Lhs -> l | Rhs -> r) with
     | Critbit (b', d') ->
