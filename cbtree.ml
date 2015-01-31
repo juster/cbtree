@@ -28,7 +28,8 @@ let cbcalc k l =
   in
   let x = String.length k in
   let y = String.length l in
-  match cbcalc' k l (min x y) 0 with Some _ as cb -> cb
+  match cbcalc' k l (min x y) 0 with
+  | Some _ as cb -> cb
   | None ->
     if x < y then Some (x lsl 4)
     else if x > y then Some (y lsl 4)
@@ -53,15 +54,21 @@ let cbtest s cb =
 (* Test if key k is present in the given tree. *)
 
 let mem k =
-  let rec walk k = function Leaf l -> l
+  let rec walk k = function
+  | Leaf l -> l
   | Branch (left, cb, right) ->
-    walk k (match cbtest k cb with Rhs -> right | Lhs -> left)
-  in function Empty -> false | Tree n -> k = (walk k n)
+    let n = match cbtest k cb with Rhs -> right | Lhs -> left in
+    walk k n
+  in
+  function
+  | Empty -> false
+  | Tree n -> k = (walk k n)
 
 (* Graft a node on to a new branch with the given leaf as sibling. *)
 
-let graft l n b d =
-  match d with Lhs -> Branch (Leaf l, b, n) | Rhs -> Branch (n, b, Leaf l)
+let graft l n b = function
+  | Lhs -> Branch (Leaf l, b, n)
+  | Rhs -> Branch (n, b, Leaf l)
 
 exception Critbit of int * bitdir
 
@@ -76,20 +83,22 @@ let rec add' k = function
     end
   | Branch (left, cb, right) ->
     let d = cbtest k cb in
-    try add' k (match d with Rhs -> right | Lhs -> left)
+    let n = match d with Rhs -> right | Lhs -> left in
+    try add' k n
     with Critbit (newcb, newdir) as e ->
       assert (newcb <> cb);
       if newcb < cb then raise e
-      else match d with
-      | Lhs -> Branch (graft k left newcb newdir, cb, right)
-      | Rhs -> Branch (left, cb, graft k right newcb newdir)
+      else
+        match d with
+        | Lhs -> Branch (graft k left newcb newdir, cb, right)
+        | Rhs -> Branch (left, cb, graft k right newcb newdir)
 
 let add k cbt =
   match cbt with
   | Empty -> Tree (Leaf k)
   | Tree n ->
-    try Tree (add' k n)
-    with Critbit (b, d) -> Tree (graft k n b d)
+    try Tree (add' k n) with
+    | Critbit (b, d) -> Tree (graft k n b d)
 
 (* Remove a key from a tree. *)
 
@@ -97,48 +106,58 @@ exception Foundkey of string
 
 let remove k t =
   let rec walk k = function
-    Leaf l -> if k = l then raise (Foundkey l) else failwith "key not found"
+  | Leaf l -> if k = l then raise (Foundkey l) else failwith "key not found"
   | Branch (left, cb, right) ->
     let dir = cbtest k cb in
     try match dir with
       | Lhs -> Branch (walk k left, cb, right)
       | Rhs -> Branch (left, cb, walk k right)
     with Foundkey l -> match dir with Rhs -> left | Lhs -> right
-  in match t with Empty -> failwith "key not found"
+  in
+  match t with
+  | Empty -> failwith "key not found"
   | Tree (Leaf l) -> if k = l then Empty else failwith "key not found"
   | Tree (b) -> Tree (walk k b)
 
 (* Iterate through every leaf of the given tree. *)
 
 let iter ~f t =
-  let rec walk f = function Leaf k -> f k
+  let rec walk f = function
+  | Leaf k -> f k
   | Branch (left, _, right) -> walk f left; walk f right
-  in match t with Empty -> () | Tree n -> walk f n
+  in
+  match t with
+  | Empty -> ()
+  | Tree n -> walk f n
 
 (* Find the leftmost leaf of a given node tree. *)
 
 let rec leftmost = function
-  Leaf l -> l | Branch (l,_,_) -> leftmost l
+  | Leaf l -> l
+  | Branch (l,_,_) -> leftmost l
 
 (* Find the direction of the node that would be on our RHS if we inserted a new
    leaf using b' and d'. Raise the Critbit exception to backtrack up the tree. *)
 
 let rhsdir b b' d d' =
   if b' < b then raise (Critbit (b', d'))
-  else match d, d' with
-  | Lhs, Lhs -> Lhs
-  | Lhs, Rhs | Rhs, Lhs -> Rhs
-  | Rhs, Rhs -> raise (Critbit (b', d'))
+  else
+    match d, d' with
+    | Lhs, Lhs -> Lhs
+    | Lhs, Rhs | Rhs, Lhs -> Rhs
+    | Rhs, Rhs -> raise (Critbit (b', d'))
 
 let rec after' k = function
-  | Leaf l -> begin
+  | Leaf l ->
+    begin
       match cbcalc k l with
       | None -> raise Not_found (* search prefix already exists as a key *)
       | Some b -> raise (Critbit (b, cbtest k b))
     end
   | Branch (l, b, r) ->
     let d = cbtest k b in
-    try after' k (match d with Lhs -> l | Rhs -> r) with
+    let n = match d with Lhs -> l | Rhs -> r in
+    try after' k n with
     | Critbit (b', d') ->
       leftmost (match rhsdir b b' d d' with Lhs -> l | Rhs -> r)
     | Not_found ->
