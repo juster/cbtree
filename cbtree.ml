@@ -40,6 +40,7 @@ let cbcalc k l =
 type bitdir = Lhs | Rhs
 
 (* Test the string's critical bit, specified by the packed cb integer. *)
+
 let cbtest s cb =
   let i = cb lsr 4 in
   match cb land 0xF with
@@ -50,6 +51,7 @@ let cbtest s cb =
     with Invalid_argument _ -> failwith "corrupt cb integer in cbtest"
   
 (* Test if key k is present in the given tree. *)
+
 let mem k =
   let rec walk k = function Leaf l -> l
   | Branch (left, cb, right) ->
