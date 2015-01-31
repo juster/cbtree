@@ -8,7 +8,7 @@ let empty = Empty
 
    The lower 4 bits are the 1-based bit index with zero representing
    the end of the string. Bit indices are backwards from convention.
-   The MSB is bit index 1, the LSB is bit index 7.
+   The MSB is bit index 1, the LSB is bit index 8.
 
    The upper 27 bits, or 59 bits on 64-bit ocaml, contain the byte index. *)
 
