@@ -42,9 +42,9 @@ type bitdir = Lhs | Rhs
 
 (* Test the string's critical bit, specified by the packed cb integer. *)
 
-let cbtest s cb =
-  let i = cb lsr 4 in
-  match cb land 0xF with
+let cbtest s b =
+  let i = b lsr 4 in
+  match b land 0xF with
   | 0 ->
     if (String.length s) <= i then Lhs else Rhs
   | m ->
@@ -56,8 +56,8 @@ let cbtest s cb =
 let mem k =
   let rec walk k = function
   | Leaf l -> l
-  | Branch (left, cb, right) ->
-    let n = match cbtest k cb with Rhs -> right | Lhs -> left in
+  | Branch (left, b, right) ->
+    let n = match cbtest k b with Rhs -> right | Lhs -> left in
     walk k n
   in
   function
@@ -81,17 +81,17 @@ let rec add' k = function
       | None -> failwith "key already exists"
       | Some cb -> raise (Critbit (cb, cbtest k cb))
     end
-  | Branch (left, cb, right) ->
-    let d = cbtest k cb in
+  | Branch (left, b, right) ->
+    let d = cbtest k b in
     let n = match d with Rhs -> right | Lhs -> left in
     try add' k n
-    with Critbit (newcb, newdir) as e ->
-      assert (newcb <> cb);
-      if newcb < cb then raise e
+    with Critbit (b', d') as e ->
+      assert (b' <> b);
+      if b' < b then raise e
       else
         match d with
-        | Lhs -> Branch (graft k left newcb newdir, cb, right)
-        | Rhs -> Branch (left, cb, graft k right newcb newdir)
+        | Lhs -> Branch (graft k left b' d', b, right)
+        | Rhs -> Branch (left, b, graft k right b' d')
 
 let add k cbt =
   match cbt with
@@ -107,12 +107,12 @@ exception Foundkey of string
 let remove k t =
   let rec walk k = function
   | Leaf l -> if k = l then raise (Foundkey l) else failwith "key not found"
-  | Branch (left, cb, right) ->
-    let dir = cbtest k cb in
-    try match dir with
-      | Lhs -> Branch (walk k left, cb, right)
-      | Rhs -> Branch (left, cb, walk k right)
-    with Foundkey l -> match dir with Rhs -> left | Lhs -> right
+  | Branch (left, b, right) ->
+    let d = cbtest k b in
+    try match d with
+      | Lhs -> Branch (walk k left, b, right)
+      | Rhs -> Branch (left, b, walk k right)
+    with Foundkey l -> match d with Rhs -> left | Lhs -> right
   in
   match t with
   | Empty -> failwith "key not found"
