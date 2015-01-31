@@ -54,15 +54,17 @@ let rec print_after p t =
   print_endline k;
   print_after k t
 
+let mktree lst =
+  let rec mktree' t = function
+    [] -> t
+  | hd :: tl -> mktree' (Cbtree.add hd t) tl
+  in
+  mktree' Cbtree.empty lst
+
 let _ =
   print_newline ();
-  let t = Cbtree.add "a" (Cbtree.add "axel" (Cbtree.add "ax" Cbtree.empty)) in
-
+  let t = mktree ["a"; "b"; "ax"; "axel"; "z"] in
   print_tree t;
   print_newline ();
-  print_endline (Cbtree.after "" t);
 
-  (*
-  print_newline ();
-  try print_after "" t with Not_found -> ()
-  *)
+  print_endline (Cbtree.after "" t);
