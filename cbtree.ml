@@ -26,8 +26,8 @@ let cbcalc k l =
     | 0 -> cbcalc' s t len (i+1)
     | m -> Some ((i lsl 4) lor (bit m 1))
   in
-  let x = String.length k in
-  let y = String.length l in
+  let x = String.length k
+  and y = String.length l in
   match cbcalc' k l (min x y) 0 with
   | Some _ as cb -> cb
   | None ->
@@ -84,8 +84,8 @@ let rec add' k = function
   | Branch (left, b, right) ->
     let d = cbtest k b in
     let n = match d with Rhs -> right | Lhs -> left in
-    try add' k n
-    with Critbit (b', d') as e ->
+    try add' k n with
+    | Critbit (b', d') as e ->
       assert (b' <> b);
       if b' < b then raise e
       else
@@ -102,22 +102,21 @@ let add k cbt =
 
 (* Remove a key from a tree. *)
 
-exception Foundkey of string
+exception Foundkey
 
 let remove k t =
   let rec walk k = function
-  | Leaf l -> if k = l then raise (Foundkey l) else failwith "key not found"
-  | Branch (left, b, right) ->
+  | Leaf l -> if k = l then raise Foundkey else raise Not_found
+  | Branch (l, b, r) ->
     let d = cbtest k b in
-    try match d with
-      | Lhs -> Branch (walk k left, b, right)
-      | Rhs -> Branch (left, b, walk k right)
-    with Foundkey l -> match d with Rhs -> left | Lhs -> right
+    try choose k l b r d with Foundkey -> match d with Rhs -> l | Lhs -> r
+  and choose k l b r = function
+  | Lhs -> Branch (walk k l, b, r)
+  | Rhs -> Branch (l, b, walk k r)
   in
   match t with
-  | Empty -> failwith "key not found"
-  | Tree (Leaf l) -> if k = l then Empty else failwith "key not found"
-  | Tree (b) -> Tree (walk k b)
+  | Empty -> raise Not_found
+  | Tree b -> try Tree (walk k b) with Foundkey -> Empty
 
 (* Iterate through every leaf of the given tree. *)
 
