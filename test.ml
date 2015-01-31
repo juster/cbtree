@@ -50,10 +50,19 @@ let _ =
   dump_tree t
 
 let rec print_after p t =
-  match Cbtree.after p t with None -> ()
-  | Some k -> print_endline k; print_after k t
+  let k = Cbtree.after p t in
+  print_endline k;
+  print_after k t
 
 let _ =
+  print_newline ();
   let t = Cbtree.add "a" (Cbtree.add "axel" (Cbtree.add "ax" Cbtree.empty)) in
+
   print_tree t;
-  print_after "al" t
+  print_newline ();
+  print_endline (Cbtree.after "" t);
+
+  (*
+  print_newline ();
+  try print_after "" t with Not_found -> ()
+  *)
