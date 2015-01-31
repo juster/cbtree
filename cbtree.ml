@@ -6,9 +6,9 @@ let empty = Empty
 (* Given a key and leaf, find the byte index and the critical bit index.
    The result is packed into an integer.
 
-   The lower 4 bits are the 1-based bit index with zero representing
-   the end of the string. Bit indices are backwards from convention.
-   The MSB is bit index 1, the LSB is bit index 8.
+   The lower 4 bits is the 1-based bit index with 0 representing the
+   premature end of a string. Bit indices are backwards from
+   convention. The MSB is bit index 1, the LSB is bit index 8.
 
    The upper 27 bits, or 59 bits on 64-bit ocaml, contain the byte index. *)
 
