@@ -129,21 +129,17 @@ let rhsdir b b' d d' =
   | Rhs, Rhs -> raise (Critbit (b', d'))
 
 let rec after' k = function
-  | Leaf l ->
-    begin
+  | Leaf l -> begin
       match cbcalc k l with
-      | None -> raise Not_found
+      | None -> raise Not_found (* search prefix already exists as a key *)
       | Some b -> raise (Critbit (b, cbtest k b))
     end
   | Branch (l, b, r) ->
     (* Backtrack until we can dive into the right-hand side. *)
     let d = cbtest k b in
-    let btrhs b' d' =
-      leftmost (match rhsdir b b' d d' with Lhs -> l | Rhs -> r)
-    in
     try after' k (match d with Lhs -> l | Rhs -> r) with
     | Critbit (b', d') ->
-      btrhs b' d'
+      leftmost (match rhsdir b b' d d' with Lhs -> l | Rhs -> r)
     | Not_found ->
       match d with Lhs -> leftmost r | Rhs -> raise (Critbit (b, d))
 
