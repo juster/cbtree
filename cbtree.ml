@@ -122,15 +122,19 @@ exception Foundkey
 
 let remove k t =
   let rec walk k = function
-  | Leaf l -> if k = l then raise Foundkey else raise Not_found
-  | Branch (l, b, r) ->
-    let d = cbtest k b in
-    try
-      match d with
-      | Lhs -> Branch (walk k l, b, r)
-      | Rhs -> Branch (l, b, walk k r)
-      | End -> raise Not_found
-    with Foundkey -> match d with Rhs -> l | Lhs -> r | End -> assert false
+    | Leaf l -> if k = l then raise Foundkey else raise Not_found
+    | Branch (l, b, r) ->
+      let d = cbtest k b in
+      try
+        match d with
+        | Lhs -> Branch (walk k l, b, r)
+        | Rhs -> Branch (l, b, walk k r)
+        | End -> raise Not_found
+      with Foundkey ->
+        match d with
+        | Rhs -> l
+        | Lhs -> r
+        | End -> assert false
   in
   match t with
   | Empty -> raise Not_found
