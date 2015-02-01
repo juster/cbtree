@@ -85,8 +85,7 @@ exception Critbit of int * bitdir
 
 (* Add a key to a non-empty tree in the form of nodes. *)
 
-let rec add' k =
-  function
+let rec add' k = function
   | Leaf l ->
     begin
       match cbcalc k l with
