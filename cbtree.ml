@@ -171,6 +171,8 @@ let rhsnode b d b' d' l r =
     | Rhs, Rhs -> btrk ()
     | End, _ -> assert false
 
+(* Retrieve the first key greater than the given prefix. *)
+
 let rec after' k = function
   | Leaf l ->
     begin
