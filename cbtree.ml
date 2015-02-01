@@ -53,7 +53,7 @@ let cbtest s b =
         match (Char.code s.[i]) land (0x80 lsr (m-1)) with
         | 0 -> Lhs
         | _ -> Rhs
-      with Invalid_argument _ -> End
+      with Invalid_argument _ -> assert false
 
 (* Create a critbit for the "premature" end of string s. *)
 
@@ -86,13 +86,12 @@ exception Critbit of int * bitdir
 (* Add a key to a non-empty tree in the form of nodes. *)
 
 let rec add' k =
-  let percup k cb = raise (Critbit (cb, cbtest k cb)) in
   function
   | Leaf l ->
     begin
       match cbcalc k l with
       | None -> failwith "key already exists"
-      | Some cb -> percup k cb
+      | Some cb -> raise (Critbit (cb, cbtest k cb))
     end
   | Branch (l, b, r) ->
     let d = cbtest k b in
@@ -100,7 +99,7 @@ let rec add' k =
       match d with
       | Lhs -> add' k l
       | Rhs -> add' k r
-      | End -> percup k (cbend k)
+      | End -> raise (Critbit (cbend k, End))
     with Critbit (b', d') as e ->
       assert (b' <> b);
       if b' < b then raise e
@@ -108,7 +107,7 @@ let rec add' k =
         match d with
         | Lhs -> Branch (graft k l b' d', b, r)
         | Rhs -> Branch (l, b, graft k r b' d')
-        | End -> assert(false)
+        | End -> assert false
 
 let add k cbt =
   match cbt with
@@ -132,7 +131,7 @@ let remove k t =
       | Lhs -> Branch (walk k l, b, r)
       | Rhs -> Branch (l, b, walk k r)
       | End -> raise Not_found
-    with Foundkey -> match d with Rhs -> l | Lhs -> r | End -> assert(false)
+    with Foundkey -> match d with Rhs -> l | Lhs -> r | End -> assert false
   in
   match t with
   | Empty -> raise Not_found
@@ -167,7 +166,7 @@ let rhsnode b d b' d' l r =
     | Lhs, (Lhs|End) -> leftmost l
     | Lhs, Rhs | Rhs, (Lhs|End) -> leftmost r
     | Rhs, Rhs -> btrk ()
-    | End, _ -> assert(false)
+    | End, _ -> assert false
 
 let rec after' k = function
   | Leaf l ->
@@ -191,7 +190,7 @@ let rec after' k = function
       match d with
       | Lhs -> leftmost r
       | Rhs -> raise (Critbit (b, d))
-      | End -> assert(false)
+      | End -> assert false
 
 let after k = function
   | Empty -> raise Not_found
