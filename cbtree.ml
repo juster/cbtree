@@ -139,12 +139,13 @@ let rec leftmost = function
    leaf using b' and d'. Raise the Critbit exception to backtrack up the tree. *)
 
 let rhsdir b b' d d' =
-  if b' < b then raise (Critbit (b', d'))
+  let btrk () = raise (Critbit (b', d')) in
+  if b' < b then btrk ()
   else
     match d, d' with
     | Lhs, Lhs -> Lhs
     | Lhs, Rhs | Rhs, Lhs -> Rhs
-    | Rhs, Rhs -> raise (Critbit (b', d'))
+    | Rhs, Rhs -> btrk ()
 
 let rec after' k = function
   | Leaf l ->
