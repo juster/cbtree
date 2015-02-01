@@ -62,7 +62,7 @@ let cbend s =
 
 (* Test if key k is present in the given tree. *)
 
-let mem k =
+let mem k t =
   let rec walk k = function
   | Leaf l -> k = l
   | Branch (left, b, right) ->
@@ -71,7 +71,7 @@ let mem k =
     | Lhs -> walk k left
     | End -> false
   in
-  function
+  match t with
   | Empty -> false
   | Tree n -> walk k n
 
