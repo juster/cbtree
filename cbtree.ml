@@ -38,66 +38,84 @@ let cbcalc k l =
      still compare every byte in the string because we can only provide
      this special case if one string is a prefix of the other. *)
 
-type bitdir = Lhs | Rhs
+type bitdir = Lhs | Rhs | End
 
 (* Test the string's critical bit, specified by the packed cb integer. *)
 
 let cbtest s b =
   let i = b lsr 4 in
-  match b land 0xF with
-  | 0 ->
-    if (String.length s) <= i then Lhs else Rhs
-  | m ->
-    try match (Char.code s.[i]) land (0x80 lsr (m-1)) with 0 -> Lhs | _ -> Rhs
-    with Invalid_argument _ -> failwith "corrupt cb integer in cbtest"
-  
+  if (String.length s) <= i then End
+  else
+    match b land 0xF with
+    | 0 -> Rhs
+    | m ->
+      try
+        match (Char.code s.[i]) land (0x80 lsr (m-1)) with
+        | 0 -> Lhs
+        | _ -> Rhs
+      with Invalid_argument _ -> End
+
+(* Create a critbit for the "premature" end of string s. *)
+
+let cbend s =
+  (String.length s) lsl 4
+
 (* Test if key k is present in the given tree. *)
 
 let mem k =
   let rec walk k = function
-  | Leaf l -> l
+  | Leaf l -> k = l
   | Branch (left, b, right) ->
-    let n = match cbtest k b with Rhs -> right | Lhs -> left in
-    walk k n
+    match cbtest k b with
+    | Rhs -> walk k right
+    | Lhs -> walk k left
+    | End -> false
   in
   function
   | Empty -> false
-  | Tree n -> k = (walk k n)
+  | Tree n -> walk k n
 
 (* Graft a node on to a new branch with the given leaf as sibling. *)
 
 let graft l n b = function
-  | Lhs -> Branch (Leaf l, b, n)
   | Rhs -> Branch (n, b, Leaf l)
+  | Lhs | End -> Branch (Leaf l, b, n)
 
 exception Critbit of int * bitdir
 
 (* Add a key to a non-empty tree in the form of nodes. *)
 
-let rec add' k = function
+let rec add' k =
+  let percup k cb = raise (Critbit (cb, cbtest k cb)) in
+  function
   | Leaf l ->
     begin
       match cbcalc k l with
       | None -> failwith "key already exists"
-      | Some cb -> raise (Critbit (cb, cbtest k cb))
+      | Some cb -> percup k cb
     end
-  | Branch (left, b, right) ->
+  | Branch (l, b, r) ->
     let d = cbtest k b in
-    let n = match d with Rhs -> right | Lhs -> left in
-    try add' k n with
-    | Critbit (b', d') as e ->
+    try
+      match d with
+      | Lhs -> add' k l
+      | Rhs -> add' k r
+      | End -> percup k (cbend k)
+    with Critbit (b', d') as e ->
       assert (b' <> b);
       if b' < b then raise e
       else
         match d with
-        | Lhs -> Branch (graft k left b' d', b, right)
-        | Rhs -> Branch (left, b, graft k right b' d')
+        | Lhs -> Branch (graft k l b' d', b, r)
+        | Rhs -> Branch (l, b, graft k r b' d')
+        | End -> assert(false)
 
 let add k cbt =
   match cbt with
   | Empty -> Tree (Leaf k)
   | Tree n ->
     try Tree (add' k n) with
+    | Invalid_argument _ -> Tree (Branch (Leaf k, cbend k, n))
     | Critbit (b, d) -> Tree (graft k n b d)
 
 (* Remove a key from a tree. *)
@@ -109,10 +127,12 @@ let remove k t =
   | Leaf l -> if k = l then raise Foundkey else raise Not_found
   | Branch (l, b, r) ->
     let d = cbtest k b in
-    try choose k l b r d with Foundkey -> match d with Rhs -> l | Lhs -> r
-  and choose k l b r = function
-  | Lhs -> Branch (walk k l, b, r)
-  | Rhs -> Branch (l, b, walk k r)
+    try
+      match d with
+      | Lhs -> Branch (walk k l, b, r)
+      | Rhs -> Branch (l, b, walk k r)
+      | End -> raise Not_found
+    with Foundkey -> match d with Rhs -> l | Lhs -> r | End -> assert(false)
   in
   match t with
   | Empty -> raise Not_found
@@ -135,17 +155,19 @@ let rec leftmost = function
   | Leaf l -> l
   | Branch (l,_,_) -> leftmost l
 
-(* Find the direction of the node that would be on our RHS if we inserted a new
-   leaf using b' and d'. Raise the Critbit exception to backtrack up the tree. *)
+(* Find the node that would be on our RHS if we inserted a new leaf
+   using b' and d'. Raise the Critbit exception to backtrack up the
+   tree. *)
 
-let rhsdir b b' d d' =
+let rhsnode b d b' d' l r =
   let btrk () = raise (Critbit (b', d')) in
   if b' < b then btrk ()
   else
     match d, d' with
-    | Lhs, Lhs -> Lhs
-    | Lhs, Rhs | Rhs, Lhs -> Rhs
+    | Lhs, (Lhs|End) -> leftmost l
+    | Lhs, Rhs | Rhs, (Lhs|End) -> leftmost r
     | Rhs, Rhs -> btrk ()
+    | End, _ -> assert(false)
 
 let rec after' k = function
   | Leaf l ->
@@ -156,16 +178,24 @@ let rec after' k = function
     end
   | Branch (l, b, r) ->
     let d = cbtest k b in
-    let n = match d with Lhs -> l | Rhs -> r in
-    try after' k n with
+    try
+      match d with
+      | Lhs -> after' k l
+      | Rhs -> after' k r
+        (* The k prefix is shorter than the common prefix of this subtree. *)
+      | End -> rhsnode b End (cbend k) Lhs l r
+    with
     | Critbit (b', d') ->
-      leftmost (match rhsdir b b' d d' with Lhs -> l | Rhs -> r)
+      rhsnode b d b' d' l r
     | Not_found ->
-      match d with Lhs -> leftmost r | Rhs -> raise (Critbit (b, d))
+      match d with
+      | Lhs -> leftmost r
+      | Rhs -> raise (Critbit (b, d))
+      | End -> assert(false)
 
 let after k = function
   | Empty -> raise Not_found
   | Tree n ->
     try after' k n with
     | Critbit (_, Rhs) -> raise Not_found
-    | Critbit (_, Lhs) -> leftmost n
+    | Critbit (_, (Lhs|End)) -> leftmost n
